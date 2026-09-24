@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Kocaeli Hava Durumu</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background: #f0f2f5; }
+        .kutu { max-width: 600px; margin: auto; background: white; padding: 25px; border-radius: 8px; }
+        button { background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+    </style>
+</head>
+<body>
+<div class="kutu">
+    <h2>?? Kocaeli Hava Durumu Kayıtları</h2>
+    
+    <!-- Butona tıklayınca Kocaeli'yi internetten çekip kaydeder -->
+    <button onclick="fetch('/guncelle', {method: 'POST'}).then(() => location.reload())">
+        ?? Kocaeli Verisini Çek ve Kaydet
+    </button>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Şehir</th>
+                <th>Sıcaklık (°C)</th>
+                <th>Nem (%)</th>
+                <th>Kayıt Saati</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for k in kayitlar %}
+            <tr>
+                <td><b>{{ k.sehir }}</b></td>
+                <td>{{ k.sicaklik }} °C</td>
+                <td>%{{ k.nem }}</td>
+                <td>{{ k.zaman }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4">Henüz veri yok. Butona basarak ilk veriyi çekin.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

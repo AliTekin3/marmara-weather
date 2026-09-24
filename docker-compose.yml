@@ -1,0 +1,9 @@
+services:
+  sqlite-api:
+    build: .
+    container_name: sqlite_api_service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
