@@ -104,9 +104,20 @@ def anasayfa(request: Request):
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    cur.execute("SELECT sehir, sicaklik, nem, zaman FROM hava_durumu ORDER BY id DESC LIMIT 20;")
+    # Grafikte soldan sağa kronolojik aksın diye son 20 kaydı çekip eskiden yeniye diziyoruz
+    cur.execute("""
+        SELECT sehir, sicaklik, nem, strftime('%H:%M:%S', zaman) as saat, zaman 
+        FROM hava_durumu 
+        ORDER BY id DESC LIMIT 20;
+    """)
     kayitlar = [dict(r) for r in cur.fetchall()]
     conn.close()
+
+    # Grafik için kronolojik (eskiden yeniye) sıralama
+    grafik_kayitlar = list(reversed(kayitlar))
+    grafik_zamanlar = [k["saat"] if k["saat"] else k["zaman"] for k in grafik_kayitlar]
+    grafik_sicaklik = [k["sicaklik"] for k in grafik_kayitlar]
+    grafik_nem = [k["nem"] for k in grafik_kayitlar]
 
     analiz_verisi = hava_analizi()
     if "sicaklik" not in analiz_verisi:
@@ -115,5 +126,12 @@ def anasayfa(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"request": request, "kayitlar": kayitlar, "analiz": analiz_verisi}
+        context={
+            "request": request, 
+            "kayitlar": kayitlar, 
+            "analiz": analiz_verisi,
+            "grafik_zamanlar": grafik_zamanlar,
+            "grafik_sicaklik": grafik_sicaklik,
+            "grafik_nem": grafik_nem
+        }
     )
