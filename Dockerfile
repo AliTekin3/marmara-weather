@@ -5,11 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
-
-# SQLite dosyasýnýn yazýlacaðý klasör
-RUN mkdir -p /app/data
-
-EXPOSE 8000
+# Tüm proje dosyalarýný (main.py, templates, data vb.) kopyalar
+COPY . .
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
