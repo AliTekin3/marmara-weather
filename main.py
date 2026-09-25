@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sqlite3
 import requests
 import pandas as pd
@@ -16,8 +17,12 @@ DB_PATH = DATA_DIR / "kocaeli_hava.db"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-KOCAELI_LAT = 40.7654
-KOCAELI_LON = 29.9408
+# Marmara Şehir Koordinatları Kataloğu
+SEHIRLER = {
+    "Kocaeli": {"lat": 40.7654, "lon": 29.9408},
+    "Istanbul": {"lat": 41.0082, "lon": 28.9784},
+    "Sakarya": {"lat": 40.7569, "lon": 30.3783}
+}
 
 def init_db():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -37,21 +42,24 @@ def init_db():
 
 def veri_cek_ve_kaydet_gorevi():
     try:
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={KOCAELI_LAT}&longitude={KOCAELI_LON}&current=temperature_2m,relative_humidity_2m"
-        res = requests.get(url, timeout=10).json()
-        
-        sicaklik = res["current"]["temperature_2m"]
-        nem = res["current"]["relative_humidity_2m"]
-
         conn = sqlite3.connect(str(DB_PATH))
         cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO hava_durumu (sehir, sicaklik, nem) VALUES (?, ?, ?);",
-            ("Kocaeli", sicaklik, nem)
-        )
+        
+        for sehir_adi, koord in SEHIRLER.items():
+            url = f"https://api.open-meteo.com/v1/forecast?latitude={koord['lat']}&longitude={koord['lon']}&current=temperature_2m,relative_humidity_2m"
+            res = requests.get(url, timeout=10).json()
+            
+            sicaklik = res["current"]["temperature_2m"]
+            nem = res["current"]["relative_humidity_2m"]
+
+            cur.execute(
+                "INSERT INTO hava_durumu (sehir, sicaklik, nem) VALUES (?, ?, ?);",
+                (sehir_adi, sicaklik, nem)
+            )
+            print(f"[OTOMATİK İŞ] {sehir_adi} kaydedildi: {sicaklik}°C, %{nem}")
+            
         conn.commit()
         conn.close()
-        print(f"[OTOMATİK İŞ] Kocaeli verisi kaydedildi: {sicaklik}°C, %{nem}")
     except Exception as e:
         print(f"[HATA] Arka plan veri çekme hatası: {e}")
 
@@ -70,7 +78,7 @@ def shutdown():
 @app.post("/guncelle")
 def elle_guncelle():
     veri_cek_ve_kaydet_gorevi()
-    return {"durum": "Manuel tetikleme başarılı"}
+    return {"durum": "Manuel çoklu şehir tetiklemesi başarılı"}
 
 @app.get("/analiz")
 def hava_analizi():
@@ -78,14 +86,14 @@ def hava_analizi():
         return {"mesaj": "Veritabanı henüz oluşmadı."}
 
     conn = sqlite3.connect(str(DB_PATH))
-    df = pd.read_sql_query("SELECT sicaklik, nem, zaman FROM hava_durumu", conn)
+    df = pd.read_sql_query("SELECT sehir, sicaklik, nem, zaman FROM hava_durumu", conn)
     conn.close()
 
     if df.empty:
         return {"mesaj": "Henüz analiz edilecek veri yok."}
 
     return {
-        "sehir": "Kocaeli",
+        "bolge": "Marmara",
         "toplam_olcum_sayisi": len(df),
         "sicaklik": {
             "ortalama": round(float(df["sicaklik"].mean()), 2),
@@ -104,7 +112,6 @@ def anasayfa(request: Request):
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
-    # Grafikte soldan sağa kronolojik aksın diye son 20 kaydı çekip eskiden yeniye diziyoruz
     cur.execute("""
         SELECT sehir, sicaklik, nem, strftime('%H:%M:%S', zaman) as saat, zaman 
         FROM hava_durumu 
@@ -113,7 +120,6 @@ def anasayfa(request: Request):
     kayitlar = [dict(r) for r in cur.fetchall()]
     conn.close()
 
-    # Grafik için kronolojik (eskiden yeniye) sıralama
     grafik_kayitlar = list(reversed(kayitlar))
     grafik_zamanlar = [k["saat"] if k["saat"] else k["zaman"] for k in grafik_kayitlar]
     grafik_sicaklik = [k["sicaklik"] for k in grafik_kayitlar]
